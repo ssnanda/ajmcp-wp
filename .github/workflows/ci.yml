@@ -1,0 +1,28 @@
+name: AJMCP WordPress Plugin
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lint-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax check
+        run: |
+          find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n 1 php -l
+      - name: PHP integration tests
+        run: php tests/run.php
+      - name: Create WordPress installation ZIP
+        run: |
+          mkdir -p dist/ajmcp-wp/includes
+          cp ajmcp-wp.php readme.txt dist/ajmcp-wp/
+          cp includes/*.php dist/ajmcp-wp/includes/
+          cd dist && zip -qr ../ajmcp-wp-${{ github.sha }}.zip ajmcp-wp
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ajmcp-wp-installable
+          path: ajmcp-wp-${{ github.sha }}.zip
