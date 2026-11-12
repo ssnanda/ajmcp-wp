@@ -25,7 +25,8 @@ final class AJMCP_WP_Replies {
         update_option( self::FAILURES_OPTION, array_slice( $list, 0, self::MAX_FAILURES ), false );
     }
 
-    private static function rows( int $page ): array {
+    /** Conversations that have at least one AI reply, newest activity first, with all their messages. */
+    private static function conversations( int $page ): array {
         $db   = AJMCP_WP_Chat::db();
         $uuid = AJMCP_WP_Client::site_uuid();
         $m    = $db ? AJMCP_WP_Chat::table( $db, 'aj_portal_chat_messages' ) : '';
@@ -33,16 +34,35 @@ final class AJMCP_WP_Replies {
         if ( ! $m || ! $s || '' === $uuid ) {
             return array( 'total' => 0, 'rows' => array(), 'ready' => false );
         }
-        $where = "m.sender_type = 'staff' AND m.sender_name = %s AND s.site_uuid = %s";
-        $total = (int) $db->get_var( $db->prepare( "SELECT COUNT(*) FROM `{$m}` m JOIN `{$s}` s ON s.id = m.session_id WHERE {$where}", 'AJMCP AI', $uuid ) );
-        $rows  = $db->get_results( $db->prepare(
-            "SELECT m.id, m.session_id, m.body, m.created_at, s.visitor_name,
-                (SELECT v.body FROM `{$m}` v WHERE v.session_id = m.session_id AND v.id < m.id AND v.sender_type = 'visitor' ORDER BY v.id DESC LIMIT 1) AS question
-             FROM `{$m}` m JOIN `{$s}` s ON s.id = m.session_id
-             WHERE {$where} ORDER BY m.id DESC LIMIT %d OFFSET %d",
-            'AJMCP AI', $uuid, self::PER_PAGE, ( $page - 1 ) * self::PER_PAGE
+        $has_ai = "EXISTS (SELECT 1 FROM `{$m}` a WHERE a.session_id = s.id AND a.sender_type = 'staff' AND a.sender_name = %s)";
+        $total  = (int) $db->get_var( $db->prepare( "SELECT COUNT(*) FROM `{$s}` s WHERE s.site_uuid = %s AND {$has_ai}", $uuid, 'AJMCP AI' ) );
+        $rows   = $db->get_results( $db->prepare(
+            "SELECT s.id, s.visitor_name, s.status, s.created_at, s.last_message_at FROM `{$s}` s
+             WHERE s.site_uuid = %s AND {$has_ai} ORDER BY s.last_message_at DESC, s.id DESC LIMIT %d OFFSET %d",
+            $uuid, 'AJMCP AI', self::PER_PAGE, ( $page - 1 ) * self::PER_PAGE
         ), ARRAY_A );
-        return array( 'total' => $total, 'rows' => is_array( $rows ) ? $rows : array(), 'ready' => true );
+        $rows = is_array( $rows ) ? $rows : array();
+        $by   = array();
+        if ( $rows ) {
+            $ids = array_map( 'absint', wp_list_pluck( $rows, 'id' ) );
+            $in  = implode( ',', $ids ); // Integers only.
+            $msgs = $db->get_results( "SELECT session_id, sender_type, sender_name, body, created_at FROM `{$m}` WHERE session_id IN ({$in}) ORDER BY id ASC", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            foreach ( (array) $msgs as $msg ) {
+                $by[ (int) $msg['session_id'] ][] = $msg;
+            }
+        }
+        foreach ( $rows as &$row ) {
+            $row['messages'] = $by[ (int) $row['id'] ] ?? array();
+        }
+        unset( $row );
+        return array( 'total' => $total, 'rows' => $rows, 'ready' => true );
+    }
+
+    private static function bubble( array $msg ): void {
+        $type  = (string) $msg['sender_type'];
+        $name  = (string) $msg['sender_name'];
+        $class = 'visitor' === $type ? 'is-visitor' : ( 'AJMCP AI' === $name ? 'is-ai' : 'is-staff' );
+        echo '<div class="ajmcp-msg ' . esc_attr( $class ) . '"><div class="ajmcp-body">' . nl2br( esc_html( (string) $msg['body'] ) ) . '</div><div class="ajmcp-meta">' . esc_html( $name . ' · ' . $msg['created_at'] ) . '</div></div>';
     }
 
     public static function page(): void {
@@ -50,12 +70,24 @@ final class AJMCP_WP_Replies {
             return;
         }
         $page = max( 1, absint( $_GET['paged'] ?? 1 ) );
-        $data = self::rows( $page );
+        $data = self::conversations( $page );
         $fail = get_option( self::FAILURES_OPTION, array() );
         $fail = is_array( $fail ) ? $fail : array();
         ?>
+        <style>
+            .ajmcp-conv{background:#fff;border:1px solid #dcdcde;border-radius:6px;margin:0 0 8px;max-width:900px}
+            .ajmcp-conv>summary{cursor:pointer;padding:10px 14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+            .ajmcp-conv .ajmcp-sub{color:#646970;font-size:12px}
+            .ajmcp-thread{padding:6px 14px 14px;display:flex;flex-direction:column;gap:8px;border-top:1px solid #f0f0f1}
+            .ajmcp-msg{max-width:78%;padding:8px 12px;border-radius:10px;background:#f0f0f1}
+            .ajmcp-msg.is-ai{align-self:flex-end;background:#e7ecff}
+            .ajmcp-msg.is-staff{align-self:flex-end;background:#e6f4ea}
+            .ajmcp-meta{color:#646970;font-size:11px;margin-top:2px}
+            .ajmcp-pill{font-size:11px;padding:1px 8px;border-radius:10px;border:1px solid #dcdcde}
+            .ajmcp-pill.open{color:#1e8449;border-color:#1e8449}
+        </style>
         <div class="wrap">
-            <h1>AJMCP Replies <small><?php echo esc_html( number_format_i18n( $data['total'] ) ); ?></small></h1>
+            <h1>AJMCP Conversations <small><?php echo esc_html( number_format_i18n( $data['total'] ) ); ?></small></h1>
             <?php if ( ! $data['ready'] ) : ?>
                 <div class="notice notice-warning"><p>AJCore chat data is not available here. Needs AJCore active and the site UUID set.</p></div>
             <?php endif; ?>
@@ -74,24 +106,25 @@ final class AJMCP_WP_Replies {
                     </tbody>
                 </table>
             <?php endif; ?>
-            <h2>AI replies</h2>
-            <table class="widefat striped">
-                <thead><tr><th style="width:130px">Time</th><th style="width:70px">Chat</th><th style="width:20%">Visitor</th><th>Asked</th><th>AI replied</th></tr></thead>
-                <tbody>
-                <?php if ( ! $data['rows'] ) : ?>
-                    <tr><td colspan="5">No AI replies yet.</td></tr>
-                <?php endif; ?>
-                <?php foreach ( $data['rows'] as $row ) : ?>
-                    <tr>
-                        <td><?php echo esc_html( (string) $row['created_at'] ); ?></td>
-                        <td>#<?php echo esc_html( (string) $row['session_id'] ); ?></td>
-                        <td><?php echo esc_html( (string) $row['visitor_name'] ); ?></td>
-                        <td><?php echo esc_html( (string) $row['question'] ); ?></td>
-                        <td><?php echo nl2br( esc_html( (string) $row['body'] ) ); ?></td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
+            <h2>Chats answered by AI</h2>
+            <?php if ( ! $data['rows'] ) : ?>
+                <p>No AI conversations yet.</p>
+            <?php endif; ?>
+            <?php foreach ( $data['rows'] as $i => $conv ) :
+                $count = count( $conv['messages'] );
+                $ai    = count( array_filter( $conv['messages'], static function ( $m ) { return 'AJMCP AI' === $m['sender_name']; } ) );
+                ?>
+                <details class="ajmcp-conv"<?php echo ( 0 === $i && 1 === $page ) ? ' open' : ''; ?>>
+                    <summary>
+                        <strong>#<?php echo esc_html( (string) $conv['id'] ); ?> <?php echo esc_html( (string) $conv['visitor_name'] ); ?></strong>
+                        <span class="ajmcp-pill <?php echo esc_attr( (string) $conv['status'] ); ?>"><?php echo esc_html( (string) $conv['status'] ); ?></span>
+                        <span class="ajmcp-sub"><?php echo esc_html( $count . ' messages · ' . $ai . ' by AI · ' . $conv['last_message_at'] ); ?></span>
+                    </summary>
+                    <div class="ajmcp-thread">
+                        <?php foreach ( $conv['messages'] as $msg ) { self::bubble( $msg ); } ?>
+                    </div>
+                </details>
+            <?php endforeach; ?>
             <?php
             $pages = (int) ceil( $data['total'] / self::PER_PAGE );
             if ( $pages > 1 ) {

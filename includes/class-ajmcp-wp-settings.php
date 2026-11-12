@@ -12,11 +12,9 @@ final class AJMCP_WP_Settings {
     }
 
     public static function menu(): void {
-        // One top-level menu: Replies, Chat, Claude (from the AI module), then Settings.
-        $pending = class_exists( 'AJWPAI_Changes' ) ? (int) AJWPAI_Changes::pending_count() : 0;
-        $title   = 'AJMCP' . ( $pending ? ' <span class="awaiting-mod">' . $pending . '</span>' : '' );
-        add_menu_page( 'AJMCP Replies', $title, 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ), 'dashicons-format-chat', 58 );
-        add_submenu_page( 'ajmcp-wp', 'AJMCP Replies', 'Replies', 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ) );
+        // One top-level menu: Conversations, Chat (from the AI module), then Settings.
+        add_menu_page( 'AJMCP Conversations', 'AJMCP', 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ), 'dashicons-format-chat', 58 );
+        add_submenu_page( 'ajmcp-wp', 'AJMCP Conversations', 'Conversations', 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ) );
         // Only the merged module has register_menus(); the old standalone AJ WP AI plugin keeps its own menu.
         if ( class_exists( 'AJWPAI_Admin' ) && method_exists( 'AJWPAI_Admin', 'register_menus' ) ) {
             AJWPAI_Admin::register_menus( 'ajmcp-wp' );

@@ -3,7 +3,7 @@
  * Plugin Name: AJMCP WordPress Connector
  * Plugin URI: https://github.com/ssnanda/ajmcp-wp
  * Description: Connects WordPress and AJCore Live Chat to an AJMCP AI gateway, and gives Claude and Codex controlled access to the site (formerly AJ WP AI).
- * Version: 0.1.3
+ * Version: 0.1.4
  * Requires at least: 6.3
  * Requires PHP: 8.0
  * Author: ITSpector LLC
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'AJMCP_WP_VERSION', '0.1.3' );
+define( 'AJMCP_WP_VERSION', '0.1.4' );
 define( 'AJMCP_WP_FILE', __FILE__ );
 define( 'AJMCP_WP_DIR', plugin_dir_path( __FILE__ ) );
 
@@ -25,7 +25,7 @@ require_once __DIR__ . '/includes/class-ajmcp-wp-chat.php';
 require_once __DIR__ . '/includes/class-ajmcp-wp-replies.php';
 
 /**
- * The AI module is the former AJ WP AI plugin (Claude connector, proposals, Codex chat). It keeps its
+ * The AI module is the Codex chat from the former AJ WP AI plugin (the Claude connector was dropped). It keeps its
  * class names, tables and options, so existing connections and history carry over. It must not load
  * while the separate AJ WP AI plugin is still active, or the classes would be declared twice.
  */
@@ -38,36 +38,16 @@ if ( ajmcp_wp_ai_module_active() ) {
     define( 'AJWPAI_VERSION', AJMCP_WP_VERSION );
     define( 'AJWPAI_DIR', AJMCP_WP_DIR . 'modules/ai/' );
     define( 'AJWPAI_FILE', __FILE__ );
-    define( 'AJWPAI_SCHEMA', 2 ); // Bump when a table changes; install() re-runs once.
 
-    require_once AJWPAI_DIR . 'includes/class-ajwpai-settings.php';
-    require_once AJWPAI_DIR . 'includes/class-ajwpai-changes.php';
-    require_once AJWPAI_DIR . 'includes/class-ajwpai-store.php';
-    require_once AJWPAI_DIR . 'includes/class-ajwpai-tools.php';
     require_once AJWPAI_DIR . 'includes/class-ajwpai-code.php';
     require_once AJWPAI_DIR . 'includes/class-ajwpai-ajcore.php';
-    require_once AJWPAI_DIR . 'includes/class-ajwpai-ajcore-tools.php';
-    require_once AJWPAI_DIR . 'includes/class-ajwpai-oauth.php';
-    require_once AJWPAI_DIR . 'includes/class-ajwpai-mcp.php';
     require_once AJWPAI_DIR . 'admin/class-ajwpai-admin.php';
 }
-
-register_activation_hook( __FILE__, static function () {
-    if ( class_exists( 'AJWPAI_Store' ) ) {
-        AJWPAI_Store::install();
-    }
-} );
 
 add_action( 'plugins_loaded', static function () {
     AJMCP_WP_Settings::init();
     AJMCP_WP_Chat::init();
-    if ( class_exists( 'AJWPAI_Store' ) && defined( 'AJWPAI_DIR' ) && AJWPAI_DIR === AJMCP_WP_DIR . 'modules/ai/' ) {
-        // Schema upgrades: run install() again when the stored schema is older.
-        if ( (int) get_option( 'ajwpai_schema', 0 ) < AJWPAI_SCHEMA ) {
-            AJWPAI_Store::install();
-        }
-        AJWPAI_OAuth::init();
-        AJWPAI_MCP::init();
+    if ( defined( 'AJWPAI_DIR' ) && AJWPAI_DIR === AJMCP_WP_DIR . 'modules/ai/' ) {
         AJWPAI_Code::init();
         AJWPAI_AJCore::init();
         if ( is_admin() ) {
