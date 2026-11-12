@@ -2,3 +2,4 @@
 *.zip
 .phpunit.result.cache
 vendor/
+releases/
