@@ -4,8 +4,10 @@ define( 'ABSPATH', '/test/' );
 define( 'DAY_IN_SECONDS', 86400 );
 define( 'ARRAY_A', 'ARRAY_A' );
 class WP_Error {
-    public $code;
-    public function __construct( $code, $message = '', $data = null ) { $this->code = $code; }
+    public $code; private $data;
+    public function __construct( $code, $message = '', $data = null ) { $this->code = $code; $this->data = $data; }
+    public function get_error_code() { return $this->code; }
+    public function get_error_data() { return $this->data; }
 }
 class WP_REST_Request {
     private $method; private $route; private $params = array();
@@ -80,11 +82,17 @@ function get_user_by( $field, $value ) { return (object) array( 'ID' => $value, 
 function user_can( $user, $cap ) { return $cap === 'manage_options'; }
 function get_current_user_id() { return $GLOBALS['test_user_id']; }
 function wp_set_current_user( $id ) { $GLOBALS['test_user_id'] = $id; }
-function rest_do_request( $request ) { $GLOBALS['test_internal_replies'][] = array( 'route' => $request->get_route(), 'body' => $request->get_param( 'body' ), 'user' => $GLOBALS['test_user_id'] ); return new WP_REST_Response( array( 'message' => array( 'id' => 12 ) ) ); }
+function sanitize_key( $key ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) ); }
+function wp_strip_all_tags( $s ) { return trim( strip_tags( (string) $s ) ); }
+function rest_do_request( $request ) {
+    if ( isset( $GLOBALS['test_rest_handler'] ) ) { return ( $GLOBALS['test_rest_handler'] )( $request ); } $GLOBALS['test_internal_replies'][] = array( 'route' => $request->get_route(), 'body' => $request->get_param( 'body' ), 'user' => $GLOBALS['test_user_id'] ); return new WP_REST_Response( array( 'message' => array( 'id' => 12 ) ) ); }
 function home_url( $path = '' ) { return 'https://example.test' . $path; }
 function ajcore_get_portal_db() { return $GLOBALS['mockdb']; }
 require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-client.php';
 require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-chat.php';
+require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-replies.php';
+require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-lead-match.php';
+require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-leads.php';
 function assert_test( $condition, $what ) { if ( ! $condition ) { fwrite( STDERR, "FAIL: $what\n" ); exit( 1 ); } echo "PASS: $what\n"; }
 
 assert_test( AJMCP_WP_Client::valid_server_url( 'https://mcp.example.com' ), 'accept HTTPS base URL' );
@@ -130,4 +138,5 @@ $GLOBALS['test_http_callback'] = static function ( $url, $args ) use ( $db ) { $
 AJMCP_WP_Chat::process( 7, 16 );
 assert_test( count( $GLOBALS['test_internal_replies'] ) === 1, 'human takeover during AI call prevents stale reply' );
 assert_test( strpos( $GLOBALS['test_http_calls'][0]['args']['headers']['Authorization'], str_repeat( 'a', 48 ) ) !== false, 'requests use server-side bearer token' );
+require __DIR__ . '/leads.php';
 echo "All AJMCP WordPress tests passed.\n";

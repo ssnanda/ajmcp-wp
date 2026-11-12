@@ -89,6 +89,8 @@ final class AJMCP_WP_Chat {
                 'siteUuid'  => AJMCP_WP_Client::site_uuid(),
                 'page'      => home_url( '/' ),
                 'visitor'   => self::visitor( $db, $session_id ),
+                // This plugin can save leads in AJCore; the server only returns one when lead capture is on for this site.
+                'leadTool'  => true,
             ) );
             if ( is_wp_error( $result ) ) {
                 $status = (array) $result->get_error_data();
@@ -100,6 +102,12 @@ final class AJMCP_WP_Chat {
             if ( '' === $reply || (int) ( $result['sessionId'] ?? 0 ) !== $session_id ) {
                 self::mark_done( $message_id );
                 return;
+            }
+            // The visitor agreed to share their details, so the lead is saved even if staff have since taken over the chat.
+            // The visitor is told it worked only after AJCore confirmed it, and never by the AI itself.
+            if ( ! empty( $result['lead'] ) && is_array( $result['lead'] ) ) {
+                $outcome = self::lead_outcome( $message_id, $result['lead'], $session_id, absint( $settings['ops_user_id'] ) );
+                $reply  .= "\n\n" . ( 'failed' === $outcome['status'] ? AJMCP_WP_Leads::failure_line() : AJMCP_WP_Leads::success_line() );
             }
             // Recheck AFTER the AI call. Staff or rule-based automations may have replied meanwhile.
             if ( ! self::eligible( $db, $session_id, $message_id ) ) {
@@ -194,7 +202,13 @@ final class AJMCP_WP_Chat {
         }, array_reverse( $rows ) );
     }
 
-    private static function reply_through_ajcore( int $session_id, string $body, int $service_user_id ) {
+    /**
+     * Runs $fn as the configured AJCore operations user, so AJCore's own permission checks apply, then switches
+     * back. Returns what $fn returns, or a WP_Error when no valid service user is set.
+     *
+     * @return mixed
+     */
+    public static function as_service_user( int $service_user_id, callable $fn ) {
         if ( ! $service_user_id || ! function_exists( 'rest_do_request' ) ) {
             return new WP_Error( 'ajmcp_ops_user_missing', 'AJCore operations user is not configured.' );
         }
@@ -204,8 +218,31 @@ final class AJMCP_WP_Chat {
         }
         $previous_user_id = get_current_user_id();
         try {
-            // Invoke AJCore's OWN permission checks and auto-reply side effects (including AJOps WS notification).
             wp_set_current_user( $service_user_id );
+            return $fn();
+        } finally {
+            wp_set_current_user( $previous_user_id );
+        }
+    }
+
+    /** Saves the lead once per chat message; a retry of the same message reuses the first result. */
+    private static function lead_outcome( int $message_id, array $lead, int $session_id, int $service_user_id ): array {
+        $key  = 'ajmcp_wp_lead_' . $message_id;
+        $done = get_transient( $key );
+        if ( is_array( $done ) ) {
+            return $done;
+        }
+        $outcome = AJMCP_WP_Leads::save( $lead, $session_id, AJMCP_WP_Client::site_uuid(), $service_user_id );
+        if ( 'failed' === $outcome['status'] ) {
+            AJMCP_WP_Replies::note_failure( $session_id, $message_id, 'lead_' . ( $outcome['error'] ?? 'failed' ) );
+        }
+        set_transient( $key, $outcome, DAY_IN_SECONDS );
+        return $outcome;
+    }
+
+    private static function reply_through_ajcore( int $session_id, string $body, int $service_user_id ) {
+        // Invoke AJCore's OWN permission checks and auto-reply side effects (including AJOps WS notification).
+        return self::as_service_user( $service_user_id, static function () use ( $session_id, $body ) {
             $request = new WP_REST_Request( 'POST', '/ajcore/v1/ops/chat/sessions/' . $session_id . '/auto-reply' );
             $request->set_param( 'body', $body );
             $request->set_param( 'senderName', 'AJMCP AI' );
@@ -214,9 +251,7 @@ final class AJMCP_WP_Chat {
                 return new WP_Error( 'ajmcp_ajcore_send_failed', 'AJCore did not accept the automated reply.' );
             }
             return true;
-        } finally {
-            wp_set_current_user( $previous_user_id );
-        }
+        } );
     }
 
     private static function retry( int $session_id, int $message_id, int $attempt, string $reason = 'error', bool $permanent = false ): void {

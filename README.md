@@ -1,6 +1,6 @@
 # AJMCP WordPress Connector
 
-WordPress plugin **v0.1.7** for secure communication with [AJMCP Server](https://github.com/ssnanda/ajmcp-server), including optional, off-by-default automatic replies to **AJCore Live Chat**.
+WordPress plugin **v0.1.8** for secure communication with [AJMCP Server](https://github.com/ssnanda/ajmcp-server), including optional, off-by-default automatic replies to **AJCore Live Chat**.
 
 The plugin runs on the WordPress server, not in a visitor's browser. The AJMCP Server keeps OpenAI/Anthropic API keys, models and per-site system prompts. This connector only needs its own site bearer token.
 

@@ -15,6 +15,7 @@ final class AJMCP_WP_Settings {
         // One top-level menu: Conversations, Chat (from the AI module), then Settings.
         add_menu_page( 'AJMCP Conversations', 'AJMCP', 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ), 'dashicons-format-chat', 58 );
         add_submenu_page( 'ajmcp-wp', 'AJMCP Conversations', 'Conversations', 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ) );
+        add_submenu_page( 'ajmcp-wp', 'AJMCP Leads', 'Leads', 'manage_options', 'ajmcp-wp-leads', array( 'AJMCP_WP_Leads_Page', 'page' ) );
         // Only the merged module has register_menus(); the old standalone AJ WP AI plugin keeps its own menu.
         if ( class_exists( 'AJWPAI_Admin' ) && method_exists( 'AJWPAI_Admin', 'register_menus' ) ) {
             AJWPAI_Admin::register_menus( 'ajmcp-wp' );

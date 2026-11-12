@@ -3,7 +3,7 @@
  * Plugin Name: AJMCP WordPress Connector
  * Plugin URI: https://github.com/ssnanda/ajmcp-wp
  * Description: Connects WordPress and AJCore Live Chat to an AJMCP AI gateway, and gives Claude and Codex controlled access to the site (formerly AJ WP AI).
- * Version: 0.1.7
+ * Version: 0.1.8
  * Requires at least: 6.3
  * Requires PHP: 8.0
  * Author: ITSpector LLC
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'AJMCP_WP_VERSION', '0.1.7' );
+define( 'AJMCP_WP_VERSION', '0.1.8' );
 define( 'AJMCP_WP_FILE', __FILE__ );
 define( 'AJMCP_WP_DIR', plugin_dir_path( __FILE__ ) );
 
@@ -23,6 +23,9 @@ require_once __DIR__ . '/includes/class-ajmcp-wp-client.php';
 require_once __DIR__ . '/includes/class-ajmcp-wp-settings.php';
 require_once __DIR__ . '/includes/class-ajmcp-wp-chat.php';
 require_once __DIR__ . '/includes/class-ajmcp-wp-replies.php';
+require_once __DIR__ . '/includes/class-ajmcp-wp-lead-match.php';
+require_once __DIR__ . '/includes/class-ajmcp-wp-leads.php';
+require_once __DIR__ . '/includes/class-ajmcp-wp-leads-page.php';
 require_once __DIR__ . '/includes/class-ajmcp-wp-assistant.php';
 
 /**
