@@ -12,9 +12,15 @@ final class AJMCP_WP_Settings {
     }
 
     public static function menu(): void {
-        // Top-level menu: Replies is the landing screen, Settings sits under it.
-        add_menu_page( 'AJMCP Replies', 'AJMCP', 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ), 'dashicons-format-chat', 58 );
+        // One top-level menu: Replies, Chat, Claude (from the AI module), then Settings.
+        $pending = class_exists( 'AJWPAI_Changes' ) ? (int) AJWPAI_Changes::pending_count() : 0;
+        $title   = 'AJMCP' . ( $pending ? ' <span class="awaiting-mod">' . $pending . '</span>' : '' );
+        add_menu_page( 'AJMCP Replies', $title, 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ), 'dashicons-format-chat', 58 );
         add_submenu_page( 'ajmcp-wp', 'AJMCP Replies', 'Replies', 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ) );
+        // Only the merged module has register_menus(); the old standalone AJ WP AI plugin keeps its own menu.
+        if ( class_exists( 'AJWPAI_Admin' ) && method_exists( 'AJWPAI_Admin', 'register_menus' ) ) {
+            AJWPAI_Admin::register_menus( 'ajmcp-wp' );
+        }
         add_submenu_page( 'ajmcp-wp', 'AJMCP Settings', 'Settings', 'manage_options', 'ajmcp-wp-settings', array( __CLASS__, 'page' ) );
     }
 

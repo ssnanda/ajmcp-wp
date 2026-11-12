@@ -310,6 +310,7 @@ build_zip() {
     --exclude='/phpunit-*.xml' \
     --exclude='/docs' \
     --exclude='/.github' \
+    --exclude='/companion' \
     --exclude='/*.pdf' \
     --exclude='/lslar.txt' \
     --exclude='*.zip' \
@@ -346,6 +347,14 @@ verify_zip() {
     "includes/class-ajmcp-wp-chat.php"
     "includes/class-ajmcp-wp-client.php"
     "includes/class-ajmcp-wp-replies.php"
+    "modules/ai/includes/class-ajwpai-store.php"
+    "modules/ai/includes/class-ajwpai-oauth.php"
+    "modules/ai/includes/class-ajwpai-mcp.php"
+    "modules/ai/includes/class-ajwpai-changes.php"
+    "modules/ai/includes/class-ajwpai-ajcore-tools.php"
+    "modules/ai/admin/class-ajwpai-admin.php"
+    "modules/ai/assets/admin.js"
+    "modules/ai/assets/admin.css"
     "includes/class-ajmcp-wp-settings.php"
   )
   [[ -f "$zip_file" ]] || { echo "Error: zip was not created: $zip_file" >&2; exit 1; }
