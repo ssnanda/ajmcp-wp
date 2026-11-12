@@ -16,6 +16,8 @@ final class AJMCP_WP_Settings {
         add_menu_page( 'AJMCP Conversations', 'AJMCP', 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ), 'dashicons-format-chat', 58 );
         add_submenu_page( 'ajmcp-wp', 'AJMCP Conversations', 'Conversations', 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ) );
         add_submenu_page( 'ajmcp-wp', 'AJMCP Leads', 'Leads', 'manage_options', 'ajmcp-wp-leads', array( 'AJMCP_WP_Leads_Page', 'page' ) );
+        add_submenu_page( 'ajmcp-wp', 'AI Behavior', 'AI Behavior', 'manage_options', 'ajmcp-wp-behavior', array( 'AJMCP_WP_Behavior', 'page' ) );
+        add_submenu_page( 'ajmcp-wp', 'Knowledge', 'Knowledge', 'manage_options', 'ajmcp-wp-knowledge', array( 'AJMCP_WP_Knowledge', 'page' ) );
         // Only the merged module has register_menus(); the old standalone AJ WP AI plugin keeps its own menu.
         if ( class_exists( 'AJWPAI_Admin' ) && method_exists( 'AJWPAI_Admin', 'register_menus' ) ) {
             AJWPAI_Admin::register_menus( 'ajmcp-wp' );

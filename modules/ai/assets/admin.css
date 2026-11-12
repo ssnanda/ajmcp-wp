@@ -7,3 +7,13 @@
 .ajwpai-approvals:empty{display:none}.ajwpai-approval{margin-top:10px;padding:10px;border:1px solid #dba617;background:#fcf9e8}.ajwpai-approval h3{margin:0 0 6px}.ajwpai-approval pre{max-height:260px;overflow:auto;margin:6px 0;padding:8px;background:#1d2327;color:#f0f0f1;white-space:pre-wrap}.ajwpai-approval-actions{display:flex;gap:8px}
 .ajwpai-prompt{align-items:flex-end;margin-top:10px}.ajwpai-prompt textarea{flex:1;min-height:80px;resize:vertical}.ajwpai-settings-card{max-width:900px;margin:16px 0;padding:16px;background:#fff;border:1px solid #c3c4c7}.ajwpai-settings-card h2{margin-top:0}
 @media(max-width:782px){.ajwpai-connect,.ajwpai-code-meta{align-items:stretch;flex-direction:column}.ajwpai-connect label{align-items:stretch;flex-direction:column}.ajwpai-message{max-width:95%}.ajwpai-messages{min-height:280px;padding:10px}.ajwpai-result-table{display:block;overflow:auto}}
+
+.ajwpai-split{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:start}
+.ajwpai-history{border:1px solid #dcdcde;background:#fff;padding:8px;max-height:620px;overflow:auto}
+.ajwpai-history ul{margin:6px 0 0;padding:0;list-style:none}
+.ajwpai-history li{display:flex;gap:6px;align-items:center;border-radius:4px}
+.ajwpai-history li.is-current{background:#e7ecff}
+.ajwpai-history li button.title{flex:1;min-width:0;text-align:left;background:none;border:0;padding:6px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:inherit}
+.ajwpai-history li button.del{background:none;border:0;color:#b32d2e;cursor:pointer;padding:4px 6px}
+.ajwpai-history .empty{color:#646970;padding:6px}
+@media(max-width:782px){.ajwpai-split{grid-template-columns:1fr}.ajwpai-history{max-height:180px}}

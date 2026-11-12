@@ -51,8 +51,13 @@ final class AJMCP_WP_Client {
         // No arbitrary endpoints, hosts, or URL paths supplied by users.
         $allowed_paths = array( '/v1/capabilities', '/v1/chat', '/v1/ajcore/reply', '/v1/assistant' );
         $is_assistant  = '/v1/assistant' === $path;
-        if ( ! in_array( $path, $allowed_paths, true ) ) {
+        // This site's own AI behavior and knowledge (the server only ever lets a site token reach its own site).
+        $is_site       = 1 === preg_match( '#^/v1/site/(config|knowledge|knowledge/sync|knowledge/[a-f0-9]{12})$#D', $path );
+        if ( ! $is_site && ! in_array( $path, $allowed_paths, true ) ) {
             return new WP_Error( 'ajmcp_forbidden_path', __( 'This AJMCP operation is not permitted.', 'ajmcp-wp' ) );
+        }
+        if ( ! in_array( $method, array( 'GET', 'POST', 'PUT', 'DELETE' ), true ) ) {
+            return new WP_Error( 'ajmcp_forbidden_method', __( 'This AJMCP operation is not permitted.', 'ajmcp-wp' ) );
         }
         $url = untrailingslashit( $base ) . $path;
         $args = array(
@@ -65,11 +70,11 @@ final class AJMCP_WP_Client {
                 'Accept'        => 'application/json',
                 'Content-Type'  => 'application/json',
             ),
-            'limit_response_size' => $is_assistant ? 262144 : 131072,
+            'limit_response_size' => $is_site ? 700000 : ( $is_assistant ? 262144 : 131072 ),
         );
-        if ( 'POST' === $method ) {
+        if ( 'POST' === $method || 'PUT' === $method ) {
             $encoded = wp_json_encode( $payload );
-            if ( false === $encoded || strlen( $encoded ) > ( $is_assistant ? 200000 : 32768 ) ) {
+            if ( false === $encoded || strlen( $encoded ) > ( $is_site ? 1100000 : ( $is_assistant ? 200000 : 32768 ) ) ) {
                 return new WP_Error( 'ajmcp_payload_size', __( 'AI request is too large.', 'ajmcp-wp' ) );
             }
             $args['body'] = $encoded;
@@ -82,7 +87,9 @@ final class AJMCP_WP_Client {
         $status = (int) wp_remote_retrieve_response_code( $response );
         $data = json_decode( (string) wp_remote_retrieve_body( $response ), true );
         if ( $status < 200 || $status >= 300 || ! is_array( $data ) ) {
-            return new WP_Error( 'ajmcp_remote_error', __( 'AJMCP server rejected the request.', 'ajmcp-wp' ), array( 'status' => $status ) );
+            // The server's short error code (for example document_too_large) is safe to show; nothing else from the body is.
+            $reason = is_array( $data ) && isset( $data['error'] ) ? sanitize_key( (string) $data['error'] ) : '';
+            return new WP_Error( 'ajmcp_remote_error', __( 'AJMCP server rejected the request.', 'ajmcp-wp' ), array( 'status' => $status, 'reason' => $reason ) );
         }
         return $data;
     }

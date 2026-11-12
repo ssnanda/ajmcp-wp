@@ -93,6 +93,10 @@ require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-chat.php';
 require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-replies.php';
 require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-lead-match.php';
 require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-leads.php';
+require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-assistant.php';
+require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-behavior.php';
+require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-site-sync.php';
+require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-knowledge.php';
 function assert_test( $condition, $what ) { if ( ! $condition ) { fwrite( STDERR, "FAIL: $what\n" ); exit( 1 ); } echo "PASS: $what\n"; }
 
 assert_test( AJMCP_WP_Client::valid_server_url( 'https://mcp.example.com' ), 'accept HTTPS base URL' );
@@ -139,4 +143,6 @@ AJMCP_WP_Chat::process( 7, 16 );
 assert_test( count( $GLOBALS['test_internal_replies'] ) === 1, 'human takeover during AI call prevents stale reply' );
 assert_test( strpos( $GLOBALS['test_http_calls'][0]['args']['headers']['Authorization'], str_repeat( 'a', 48 ) ) !== false, 'requests use server-side bearer token' );
 require __DIR__ . '/leads.php';
+require __DIR__ . '/assistant-chats.php';
+require __DIR__ . '/site-settings.php';
 echo "All AJMCP WordPress tests passed.\n";

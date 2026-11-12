@@ -12,8 +12,24 @@ final class AJMCP_WP_Assistant {
     const MAX_MESSAGES = 60;
     const MAX_CHARS    = 70000;
 
+    const CHAT_TYPE = 'ajmcp_chat';
+
     public static function init(): void {
+        add_action( 'init', array( __CLASS__, 'register_chat_type' ) );
         add_action( 'rest_api_init', array( __CLASS__, 'routes' ) );
+    }
+
+    /** Saved Assistant conversations: a private post type (never public, no admin screen of its own). */
+    public static function register_chat_type(): void {
+        register_post_type( self::CHAT_TYPE, array(
+            'labels'              => array( 'name' => 'Assistant chats' ),
+            'public'              => false,
+            'show_ui'             => false,
+            'show_in_rest'        => false,
+            'exclude_from_search' => true,
+            'supports'            => array( 'title', 'author' ),
+            'rewrite'             => false,
+        ) );
     }
 
     public static function routes(): void {
@@ -21,6 +37,132 @@ final class AJMCP_WP_Assistant {
         register_rest_route( 'ajmcp/v1', '/assistant/config', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( __CLASS__, 'config' ) ) ) );
         register_rest_route( 'ajmcp/v1', '/assistant/status', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( __CLASS__, 'status' ) ) ) );
         register_rest_route( 'ajmcp/v1', '/assistant/turn', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( __CLASS__, 'turn' ) ) ) );
+        // Each endpoint carries its own permission check (a route-level one would not apply to a list of endpoints).
+        $perm = $args['permission_callback'];
+        register_rest_route( 'ajmcp/v1', '/assistant/chats', array(
+            array( 'methods' => 'GET', 'callback' => array( __CLASS__, 'chats_list' ), 'permission_callback' => $perm ),
+            array( 'methods' => 'POST', 'callback' => array( __CLASS__, 'chat_save' ), 'permission_callback' => $perm ),
+        ) );
+        register_rest_route( 'ajmcp/v1', '/assistant/chats/(?P<id>\\d+)', array(
+            array( 'methods' => 'GET', 'callback' => array( __CLASS__, 'chat_get' ), 'permission_callback' => $perm ),
+            array( 'methods' => 'DELETE', 'callback' => array( __CLASS__, 'chat_delete' ), 'permission_callback' => $perm ),
+        ) );
+    }
+
+    // ── Saved conversations (each user only ever sees their own) ──────────────────
+
+    const MAX_LOG_LINES = 300;
+    const MAX_CHAT_BYTES = 400000;
+
+    /** The chat post if it exists and belongs to the current user, else a 404. */
+    private static function own_chat( $id ) {
+        $post = get_post( absint( $id ) );
+        if ( ! $post || self::CHAT_TYPE !== $post->post_type || 'publish' !== $post->post_status || (int) $post->post_author !== get_current_user_id() ) {
+            return new WP_Error( 'ajmcp_chat_not_found', 'That conversation was not found.', array( 'status' => 404 ) );
+        }
+        return $post;
+    }
+
+    public static function chats_list(): WP_REST_Response {
+        $posts = get_posts( array(
+            'post_type' => self::CHAT_TYPE, 'post_status' => 'publish', 'author' => get_current_user_id(),
+            'numberposts' => 50, 'orderby' => 'modified', 'order' => 'DESC', 'suppress_filters' => true,
+        ) );
+        $out = array();
+        foreach ( $posts as $post ) {
+            $out[] = array( 'id' => (int) $post->ID, 'title' => (string) $post->post_title, 'updated' => (string) $post->post_modified_gmt );
+        }
+        return new WP_REST_Response( array( 'chats' => $out ) );
+    }
+
+    public static function chat_get( WP_REST_Request $request ) {
+        $post = self::own_chat( $request->get_param( 'id' ) );
+        if ( is_wp_error( $post ) ) {
+            return $post;
+        }
+        $data = json_decode( (string) $post->post_content, true );
+        $data = is_array( $data ) ? $data : array();
+        return new WP_REST_Response( array(
+            'id' => (int) $post->ID, 'title' => (string) $post->post_title,
+            'history' => array_values( (array) ( $data['history'] ?? array() ) ), 'log' => array_values( (array) ( $data['log'] ?? array() ) ),
+        ) );
+    }
+
+    /** Creates a conversation, or updates the one with the given id. */
+    public static function chat_save( WP_REST_Request $request ) {
+        $history = self::clean_history( (array) $request->get_param( 'history' ) );
+        if ( is_wp_error( $history ) ) {
+            return $history;
+        }
+        $log = array();
+        foreach ( array_slice( (array) $request->get_param( 'log' ), -self::MAX_LOG_LINES ) as $line ) {
+            $kind = isset( $line['kind'] ) ? (string) $line['kind'] : '';
+            if ( isset( $line['text'] ) && is_string( $line['text'] ) && in_array( $kind, array( 'user', 'assistant', 'system', 'error' ), true ) ) {
+                $log[] = array( 'kind' => $kind, 'text' => mb_substr( $line['text'], 0, 20000 ) );
+            }
+        }
+        $json = wp_json_encode( array( 'history' => $history, 'log' => $log ) );
+        if ( ! $history || false === $json || strlen( $json ) > self::MAX_CHAT_BYTES ) {
+            return new WP_Error( 'ajmcp_chat_invalid', 'This conversation is empty or too large to save.', array( 'status' => 400 ) );
+        }
+        $id   = absint( $request->get_param( 'id' ) );
+        $post = array( 'post_type' => self::CHAT_TYPE, 'post_status' => 'publish', 'post_content' => wp_slash( $json ) );
+        if ( $id ) {
+            $existing = self::own_chat( $id );
+            if ( is_wp_error( $existing ) ) {
+                return $existing;
+            }
+            $post['ID'] = $id;
+            $title      = (string) $existing->post_title;
+        } else {
+            $post['post_author'] = get_current_user_id();
+            $title               = '';
+        }
+        if ( '' === $title ) {
+            foreach ( $history as $message ) {
+                if ( 'user' === $message['role'] ) {
+                    $title = mb_substr( trim( preg_replace( '/\s+/', ' ', $message['content'] ) ), 0, 60 );
+                    break;
+                }
+            }
+        }
+        $post['post_title'] = '' !== $title ? $title : 'Conversation';
+        $saved = $id ? wp_update_post( wp_slash( $post ), true ) : wp_insert_post( wp_slash( $post ), true );
+        if ( is_wp_error( $saved ) || ! $saved ) {
+            return new WP_Error( 'ajmcp_chat_save_failed', 'The conversation could not be saved.', array( 'status' => 500 ) );
+        }
+        return new WP_REST_Response( array( 'id' => (int) $saved, 'title' => $post['post_title'] ) );
+    }
+
+    public static function chat_delete( WP_REST_Request $request ) {
+        $post = self::own_chat( $request->get_param( 'id' ) );
+        if ( is_wp_error( $post ) ) {
+            return $post;
+        }
+        wp_trash_post( (int) $post->ID );
+        return new WP_REST_Response( array( 'ok' => true ) );
+    }
+
+    /** Same rules as a live turn: known roles, string content, bounded size. */
+    private static function clean_history( array $raw ) {
+        $out   = array();
+        $chars = 0;
+        foreach ( array_slice( $raw, -self::MAX_MESSAGES ) as $m ) {
+            $role = isset( $m['role'] ) ? (string) $m['role'] : '';
+            if ( ! in_array( $role, array( 'user', 'assistant', 'tool' ), true ) || ! isset( $m['content'] ) || ! is_string( $m['content'] ) ) {
+                return new WP_Error( 'ajmcp_chat_invalid', 'Invalid message.', array( 'status' => 400 ) );
+            }
+            $chars += strlen( $m['content'] );
+            $entry  = array( 'role' => $role, 'content' => $m['content'] );
+            if ( 'tool' === $role ) {
+                $entry['name'] = sanitize_key( (string) ( $m['name'] ?? '' ) );
+            }
+            $out[] = $entry;
+        }
+        if ( $chars > self::MAX_CHARS ) {
+            return new WP_Error( 'ajmcp_chat_invalid', 'This conversation is too long to continue. Start a new one.', array( 'status' => 400 ) );
+        }
+        return $out;
     }
 
     private static function obj( array $properties = array(), array $required = array() ): array {

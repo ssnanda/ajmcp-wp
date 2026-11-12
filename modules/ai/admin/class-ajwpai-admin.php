@@ -33,6 +33,7 @@ class AJWPAI_Admin {
 				'nonce'     => wp_create_nonce( 'wp_rest' ),
 				'turnUrl'   => esc_url_raw( rest_url( 'ajmcp/v1/assistant/turn' ) ),
 				'configUrl' => esc_url_raw( rest_url( 'ajmcp/v1/assistant/config' ) ),
+				'chatsUrl'  => esc_url_raw( rest_url( 'ajmcp/v1/assistant/chats' ) ),
 				'statusUrl' => esc_url_raw( rest_url( 'ajmcp/v1/assistant/status' ) ),
 				'codeUrl'   => esc_url_raw( rest_url( 'ajwpai/v1/code/' ) ),
 			)
@@ -62,8 +63,13 @@ class AJWPAI_Admin {
 						<button type="button" class="button" id="ajwpai-code-new"><?php esc_html_e( 'New chat', 'ajwpai' ); ?></button>
 					</span>
 				</div>
-				<div id="ajwpai-code-messages" class="ajwpai-messages" aria-live="polite"></div>
-				<div id="ajwpai-code-approvals" class="ajwpai-approvals"></div>
+				<div class="ajwpai-split">
+					<aside class="ajwpai-history"><strong><?php esc_html_e( 'Saved chats', 'ajwpai' ); ?></strong><ul id="ajwpai-history-list"></ul></aside>
+					<div class="ajwpai-main">
+						<div id="ajwpai-code-messages" class="ajwpai-messages" aria-live="polite"></div>
+						<div id="ajwpai-code-approvals" class="ajwpai-approvals"></div>
+					</div>
+				</div>
 				<form id="ajwpai-code-form" class="ajwpai-prompt">
 					<textarea id="ajwpai-code-prompt" rows="3" placeholder="<?php echo esc_attr__( 'Ask the AI to write a blog post, draft a page, or look up a lead…', 'ajwpai' ); ?>" disabled></textarea>
 					<button class="button button-primary" type="submit" disabled><?php esc_html_e( 'Send', 'ajwpai' ); ?></button>

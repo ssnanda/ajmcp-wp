@@ -3,7 +3,7 @@
  * Plugin Name: AJMCP WordPress Connector
  * Plugin URI: https://github.com/ssnanda/ajmcp-wp
  * Description: Connects WordPress and AJCore Live Chat to an AJMCP AI gateway, and gives Claude and Codex controlled access to the site (formerly AJ WP AI).
- * Version: 0.1.8
+ * Version: 0.1.9
  * Requires at least: 6.3
  * Requires PHP: 8.0
  * Author: ITSpector LLC
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'AJMCP_WP_VERSION', '0.1.8' );
+define( 'AJMCP_WP_VERSION', '0.1.9' );
 define( 'AJMCP_WP_FILE', __FILE__ );
 define( 'AJMCP_WP_DIR', plugin_dir_path( __FILE__ ) );
 
@@ -27,6 +27,9 @@ require_once __DIR__ . '/includes/class-ajmcp-wp-lead-match.php';
 require_once __DIR__ . '/includes/class-ajmcp-wp-leads.php';
 require_once __DIR__ . '/includes/class-ajmcp-wp-leads-page.php';
 require_once __DIR__ . '/includes/class-ajmcp-wp-assistant.php';
+require_once __DIR__ . '/includes/class-ajmcp-wp-behavior.php';
+require_once __DIR__ . '/includes/class-ajmcp-wp-site-sync.php';
+require_once __DIR__ . '/includes/class-ajmcp-wp-knowledge.php';
 
 /**
  * The AI module is the Codex chat from the former AJ WP AI plugin (the Claude connector was dropped). It keeps its
@@ -52,6 +55,9 @@ add_action( 'plugins_loaded', static function () {
     AJMCP_WP_Settings::init();
     AJMCP_WP_Chat::init();
     AJMCP_WP_Assistant::init();
+    AJMCP_WP_Behavior::init();
+    AJMCP_WP_Knowledge::init();
+    AJMCP_WP_Site_Sync::init();
     if ( defined( 'AJWPAI_DIR' ) && AJWPAI_DIR === AJMCP_WP_DIR . 'modules/ai/' ) {
         AJWPAI_Code::init();
         AJWPAI_AJCore::init();
