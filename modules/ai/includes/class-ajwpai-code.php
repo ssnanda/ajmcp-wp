@@ -1,6 +1,6 @@
 <?php
 /**
- * Narrow WordPress tools used by the local Codex companion.
+ * Narrow WordPress tools (posts, drafts, design catalog) used by the Assistant page.
  *
  * @package AJWPAI
  */

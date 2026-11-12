@@ -3,7 +3,7 @@ Contributors: ajmcp
 Tags: ai, mcp, ajcore, live-chat, openai, claude
 Requires at least: 6.3
 Requires PHP: 8.0
-Stable tag: 0.1.4
+Stable tag: 0.1.5
 License: GPLv2 or later
 
 Connect WordPress and AJCore Live Chat to a private AJMCP Server supporting OpenAI and Claude models.

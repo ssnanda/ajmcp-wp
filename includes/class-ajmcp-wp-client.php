@@ -49,7 +49,8 @@ final class AJMCP_WP_Client {
             return new WP_Error( 'ajmcp_not_configured', __( 'AJMCP server or site token is not configured.', 'ajmcp-wp' ) );
         }
         // No arbitrary endpoints, hosts, or URL paths supplied by users.
-        $allowed_paths = array( '/v1/capabilities', '/v1/chat', '/v1/ajcore/reply' );
+        $allowed_paths = array( '/v1/capabilities', '/v1/chat', '/v1/ajcore/reply', '/v1/assistant' );
+        $is_assistant  = '/v1/assistant' === $path;
         if ( ! in_array( $path, $allowed_paths, true ) ) {
             return new WP_Error( 'ajmcp_forbidden_path', __( 'This AJMCP operation is not permitted.', 'ajmcp-wp' ) );
         }
@@ -64,11 +65,11 @@ final class AJMCP_WP_Client {
                 'Accept'        => 'application/json',
                 'Content-Type'  => 'application/json',
             ),
-            'limit_response_size' => 131072,
+            'limit_response_size' => $is_assistant ? 262144 : 131072,
         );
         if ( 'POST' === $method ) {
             $encoded = wp_json_encode( $payload );
-            if ( false === $encoded || strlen( $encoded ) > 32768 ) {
+            if ( false === $encoded || strlen( $encoded ) > ( $is_assistant ? 200000 : 32768 ) ) {
                 return new WP_Error( 'ajmcp_payload_size', __( 'AI request is too large.', 'ajmcp-wp' ) );
             }
             $args['body'] = $encoded;
