@@ -139,7 +139,7 @@
 			tools = (await wp(cfg.configUrl)).tools || {};
 			const status = await wp(cfg.statusUrl);
 			if (status.ok) {
-				setStatus(true, 'Connected');
+				setStatus(true, 'Connected' + (status.version ? ' · server v' + status.version : ''));
 				setBusy(false);
 			} else {
 				setStatus(false, 'Not connected');

@@ -83,8 +83,8 @@ final class AJMCP_WP_Assistant {
         if ( empty( $settings['enabled'] ) ) {
             return new WP_REST_Response( array( 'ok' => false, 'reason' => 'disabled' ) );
         }
-        $result = AJMCP_WP_Client::request( '/v1/capabilities' );
-        return new WP_REST_Response( array( 'ok' => ! is_wp_error( $result ), 'reason' => is_wp_error( $result ) ? $result->get_error_code() : '' ) );
+        $info = AJMCP_WP_Client::server_info();
+        return new WP_REST_Response( array( 'ok' => $info['ok'], 'reason' => $info['ok'] ? '' : 'unreachable', 'version' => $info['version'], 'provider' => $info['provider'] ) );
     }
 
     public static function turn( WP_REST_Request $request ) {

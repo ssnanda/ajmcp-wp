@@ -62,16 +62,14 @@ final class AJMCP_WP_Settings {
         }
         // Disable autoload: a stored bearer token should not be loaded into every WP request.
         update_option( 'ajmcp_wp_settings', $new, false );
+        delete_transient( 'ajmcp_wp_server_info' );
         self::redirect( 'saved' );
     }
 
     public static function test_connection(): void {
         self::verify_admin( 'ajmcp_wp_test' );
-        $response = AJMCP_WP_Client::request( '/v1/capabilities' );
-        if ( is_wp_error( $response ) ) {
-            self::redirect( 'failed' );
-        }
-        self::redirect( 'connected' );
+        $info = AJMCP_WP_Client::server_info( true );
+        self::redirect( $info['ok'] ? 'connected' : 'failed' );
     }
 
     private static function redirect( string $status ): void {
@@ -96,7 +94,16 @@ final class AJMCP_WP_Settings {
         ?>
         <div class="wrap">
             <h1>AJMCP WordPress Connector <small>v<?php echo esc_html( AJMCP_WP_VERSION ); ?></small></h1>
-            <p>Connects this WordPress site to your private AJMCP Server. AI provider keys remain on the server.</p>
+            <?php $server = ! empty( $settings['enabled'] ) ? AJMCP_WP_Client::server_info() : null; ?>
+            <p>
+                <?php if ( ! $server ) : ?>
+                    Server: connector switched off.
+                <?php elseif ( $server['ok'] ) : ?>
+                    Server: <strong>v<?php echo esc_html( $server['version'] ); ?></strong> &middot; site <code><?php echo esc_html( $server['site'] ); ?></code> &middot; <?php echo esc_html( $server['provider'] ); ?> &middot; <span style="color:#00a32a">connected</span>
+                <?php else : ?>
+                    Server: <span style="color:#d63638">not reachable</span>
+                <?php endif; ?>
+            </p>
             <?php if ( isset( $notices[ $status ] ) ) : ?>
                 <div class="notice notice-info"><p><?php echo esc_html( $notices[ $status ] ); ?></p></div>
             <?php endif; ?>

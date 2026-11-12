@@ -87,6 +87,33 @@ final class AJMCP_WP_Client {
         return $data;
     }
 
+    /**
+     * Server version and this site's provider, from GET /v1/capabilities. Cached for five minutes so
+     * admin pages do not call the server on every load; pass $refresh to force a new check.
+     *
+     * @return array{ok:bool,version:string,site:string,provider:string}
+     */
+    public static function server_info( bool $refresh = false ): array {
+        $key = 'ajmcp_wp_server_info';
+        if ( ! $refresh ) {
+            $cached = get_transient( $key );
+            if ( is_array( $cached ) ) {
+                return $cached;
+            }
+        }
+        $data = self::request( '/v1/capabilities' );
+        $info = is_wp_error( $data )
+            ? array( 'ok' => false, 'version' => '', 'site' => '', 'provider' => '' )
+            : array(
+                'ok'       => true,
+                'version'  => sanitize_text_field( (string) ( $data['version'] ?? '' ) ),
+                'site'     => sanitize_text_field( (string) ( $data['id'] ?? '' ) ),
+                'provider' => sanitize_text_field( (string) ( $data['provider'] ?? '' ) ),
+            );
+        set_transient( $key, $info, $info['ok'] ? 5 * MINUTE_IN_SECONDS : MINUTE_IN_SECONDS );
+        return $info;
+    }
+
     public static function valid_server_url( string $url ): bool {
         if ( '' === $url || strlen( $url ) > 300 ) {
             return false;
