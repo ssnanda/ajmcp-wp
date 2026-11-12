@@ -345,6 +345,7 @@ verify_zip() {
     "readme.txt"
     "includes/class-ajmcp-wp-chat.php"
     "includes/class-ajmcp-wp-client.php"
+    "includes/class-ajmcp-wp-replies.php"
     "includes/class-ajmcp-wp-settings.php"
   )
   [[ -f "$zip_file" ]] || { echo "Error: zip was not created: $zip_file" >&2; exit 1; }
@@ -381,7 +382,8 @@ git_commit_release_files() {
     return 0
   fi
 
-  git commit -m "Release AJMCP WordPress Connector $VERSION"
+  # [skip ci] stops GitHub Actions from running on the release push.
+  git commit -m "Release AJMCP WordPress Connector $VERSION [skip ci]"
 }
 
 git_create_tag() {

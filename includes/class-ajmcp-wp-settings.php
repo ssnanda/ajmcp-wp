@@ -12,7 +12,10 @@ final class AJMCP_WP_Settings {
     }
 
     public static function menu(): void {
-        add_options_page( 'AJMCP Connector', 'AJMCP', 'manage_options', 'ajmcp-wp', array( __CLASS__, 'page' ) );
+        // Top-level menu: Replies is the landing screen, Settings sits under it.
+        add_menu_page( 'AJMCP Replies', 'AJMCP', 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ), 'dashicons-format-chat', 58 );
+        add_submenu_page( 'ajmcp-wp', 'AJMCP Replies', 'Replies', 'manage_options', 'ajmcp-wp', array( 'AJMCP_WP_Replies', 'page' ) );
+        add_submenu_page( 'ajmcp-wp', 'AJMCP Settings', 'Settings', 'manage_options', 'ajmcp-wp-settings', array( __CLASS__, 'page' ) );
     }
 
     private static function verify_admin( string $nonce_action ): void {
@@ -68,7 +71,7 @@ final class AJMCP_WP_Settings {
     }
 
     private static function redirect( string $status ): void {
-        wp_safe_redirect( add_query_arg( array( 'page' => 'ajmcp-wp', 'ajmcp_status' => $status ), admin_url( 'options-general.php' ) ) );
+        wp_safe_redirect( add_query_arg( array( 'page' => 'ajmcp-wp-settings', 'ajmcp_status' => $status ), admin_url( 'admin.php' ) ) );
         exit;
     }
 

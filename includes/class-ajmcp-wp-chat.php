@@ -68,7 +68,7 @@ final class AJMCP_WP_Chat {
         try {
             $db = self::db();
             if ( ! $db ) {
-                self::retry( $session_id, $message_id, $attempt );
+                self::retry( $session_id, $message_id, $attempt, 'ajcore_database_unavailable' );
                 return;
             }
             if ( ! self::eligible( $db, $session_id, $message_id ) ) {
@@ -87,7 +87,8 @@ final class AJMCP_WP_Chat {
                 'history'   => $history,
             ) );
             if ( is_wp_error( $result ) ) {
-                self::retry( $session_id, $message_id, $attempt );
+                $status = (array) $result->get_error_data();
+                self::retry( $session_id, $message_id, $attempt, $result->get_error_code() . ( isset( $status['status'] ) ? '_' . (int) $status['status'] : '' ), ! empty( $status['status'] ) && (int) $status['status'] >= 400 && (int) $status['status'] < 500 && 429 !== (int) $status['status'] );
                 return;
             }
             $reply = sanitize_textarea_field( (string) ( $result['reply'] ?? '' ) );
@@ -103,26 +104,26 @@ final class AJMCP_WP_Chat {
             }
             $sent = self::reply_through_ajcore( $session_id, $reply, absint( $settings['ops_user_id'] ) );
             if ( is_wp_error( $sent ) ) {
-                self::retry( $session_id, $message_id, $attempt );
+                self::retry( $session_id, $message_id, $attempt, $sent->get_error_code() );
                 return;
             }
             self::mark_done( $message_id );
         } catch ( Throwable $error ) {
             // Do not record prompts, customer data, or response content in application logs.
-            self::retry( $session_id, $message_id, $attempt );
+            self::retry( $session_id, $message_id, $attempt, 'exception' );
         } finally {
             delete_option( $lock );
         }
     }
 
-    private static function db() {
+    public static function db() {
         if ( function_exists( 'ajcore_get_portal_db' ) ) {
             return ajcore_get_portal_db();
         }
         return null; // Never guess the location of AJCore's shared database.
     }
 
-    private static function table( $db, string $suffix ): string {
+    public static function table( $db, string $suffix ): string {
         $table = $db->prefix . $suffix;
         return preg_match( '/^[a-zA-Z0-9_]+$/D', $table ) ? $table : '';
     }
@@ -167,6 +168,10 @@ final class AJMCP_WP_Chat {
         if ( ! is_array( $rows ) ) {
             return array();
         }
+        // The server rejects empty messages (e.g. a file-only chat message), so leave them out.
+        $rows = array_values( array_filter( $rows, static function ( $row ) {
+            return '' !== trim( (string) $row['body'] );
+        } ) );
         return array_map( static function ( $row ) {
             return array(
                 'role'    => 'visitor' === $row['sender_type'] ? 'user' : 'assistant',
@@ -200,9 +205,11 @@ final class AJMCP_WP_Chat {
         }
     }
 
-    private static function retry( int $session_id, int $message_id, int $attempt ): void {
-        if ( $attempt >= 2 ) {
-            self::mark_done( $message_id ); // Stop after three total attempts.
+    private static function retry( int $session_id, int $message_id, int $attempt, string $reason = 'error', bool $permanent = false ): void {
+        if ( $permanent || $attempt >= 2 ) {
+            // Stop after three attempts, or at once for a permanent 4xx (bad token, model, request).
+            AJMCP_WP_Replies::note_failure( $session_id, $message_id, $reason );
+            self::mark_done( $message_id );
             return;
         }
         $delay = ( $attempt + 1 ) * 60;

@@ -56,7 +56,7 @@ final class AJMCP_WP_Client {
         $url = untrailingslashit( $base ) . $path;
         $args = array(
             'method'             => $method,
-            'timeout'            => 60,
+            'timeout'            => 100, // Above the server's 90s CLI limit, so a slow reply is not retried mid-flight.
             'redirection'        => 0,
             'reject_unsafe_urls' => true,
             'headers'            => array(
