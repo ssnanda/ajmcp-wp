@@ -85,6 +85,10 @@ final class AJMCP_WP_Chat {
                 'sessionId' => $session_id,
                 'message'   => self::truncate( (string) $message['body'], 6000 ),
                 'history'   => $history,
+                // Lets the server file a lead against the right website and chat, and skip asking for what the chat form already collected.
+                'siteUuid'  => AJMCP_WP_Client::site_uuid(),
+                'page'      => home_url( '/' ),
+                'visitor'   => self::visitor( $db, $session_id ),
             ) );
             if ( is_wp_error( $result ) ) {
                 $status = (array) $result->get_error_data();
@@ -145,6 +149,16 @@ final class AJMCP_WP_Chat {
         }
         $latest = (int) $db->get_var( $db->prepare( "SELECT id FROM `{$m}` WHERE session_id = %d ORDER BY id DESC LIMIT 1", $session_id ) );
         return $latest === $message_id;
+    }
+
+    /** Name, email and phone the visitor gave in the chat's pre-chat form (any of them may be blank). */
+    private static function visitor( $db, int $session_id ): array {
+        $table = self::table( $db, 'aj_portal_chat_sessions' );
+        if ( ! $table ) {
+            return array();
+        }
+        $row = $db->get_row( $db->prepare( "SELECT visitor_name, visitor_email, visitor_phone FROM `{$table}` WHERE id = %d", $session_id ), ARRAY_A );
+        return is_array( $row ) ? array( 'name' => (string) ( $row['visitor_name'] ?? '' ), 'email' => (string) ( $row['visitor_email'] ?? '' ), 'phone' => (string) ( $row['visitor_phone'] ?? '' ) ) : array();
     }
 
     private static function message( $db, int $session_id, int $message_id ): ?array {

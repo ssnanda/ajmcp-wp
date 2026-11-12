@@ -81,6 +81,7 @@ function user_can( $user, $cap ) { return $cap === 'manage_options'; }
 function get_current_user_id() { return $GLOBALS['test_user_id']; }
 function wp_set_current_user( $id ) { $GLOBALS['test_user_id'] = $id; }
 function rest_do_request( $request ) { $GLOBALS['test_internal_replies'][] = array( 'route' => $request->get_route(), 'body' => $request->get_param( 'body' ), 'user' => $GLOBALS['test_user_id'] ); return new WP_REST_Response( array( 'message' => array( 'id' => 12 ) ) ); }
+function home_url( $path = '' ) { return 'https://example.test' . $path; }
 function ajcore_get_portal_db() { return $GLOBALS['mockdb']; }
 require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-client.php';
 require_once dirname( __DIR__ ) . '/includes/class-ajmcp-wp-chat.php';
@@ -102,6 +103,9 @@ AJMCP_WP_Chat::observe( $response, null, $event );
 assert_test( count( $GLOBALS['test_events'] ) === 1, 'successful AJCore message creates background job' );
 AJMCP_WP_Chat::process( 7, 11 );
 assert_test( count( $GLOBALS['test_internal_replies'] ) === 1, 'AI response delivered through AJCore' );
+$sent = json_decode( $GLOBALS['test_http_calls'][0]['args']['body'] ?? '{}', true );
+assert_test( 'ours' === ( $sent['siteUuid'] ?? '' ), 'the AJCore site UUID is sent so the server can file leads against the right website' );
+assert_test( isset( $sent['visitor'] ) && is_array( $sent['visitor'] ), 'known visitor details are sent along' );
 assert_test( $GLOBALS['test_internal_replies'][0]['user'] === 3 && $GLOBALS['test_user_id'] === 0, 'scoped service identity restored after reply' );
 assert_test( get_transient( 'ajmcp_wp_done_11' ) === 1, 'message deduplication recorded' );
 AJMCP_WP_Chat::process( 7, 11 );
